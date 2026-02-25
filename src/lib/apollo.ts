@@ -240,9 +240,12 @@ export async function searchCompaniesPage(
   }
 
   const data = await resp.json();
-  const orgs = data.organizations || data.accounts || [];
+  // Apollo returns companies under "accounts" (with data) and "organizations" (empty)
+  const accts = data.accounts || [];
+  const orgs = data.organizations || [];
+  const raw = accts.length > 0 ? accts : orgs;
 
-  const companies: CompanyResult[] = orgs.map((c: Record<string, unknown>) => {
+  const companies: CompanyResult[] = raw.map((c: Record<string, unknown>) => {
     const keywords = (c.keywords as string[]) || [];
     return {
       name: (c.name as string) || "",
@@ -250,11 +253,15 @@ export async function searchCompaniesPage(
       website: (c.website_url as string) || "",
       industry: (c.industry as string) || "",
       employees: String((c.estimated_num_employees as number) || ""),
-      revenue: (c.annual_revenue_printed as string) || "",
-      city: (c.city as string) || "",
-      state: (c.state as string) || "",
-      country: (c.country as string) || "",
-      location: [c.city, c.state, c.country].filter(Boolean).join(", "),
+      revenue: (c.organization_revenue_printed as string) || (c.annual_revenue_printed as string) || "",
+      city: (c.organization_city as string) || (c.city as string) || "",
+      state: (c.organization_state as string) || (c.state as string) || "",
+      country: (c.organization_country as string) || (c.country as string) || "",
+      location: [
+        c.organization_city || c.city,
+        c.organization_state || c.state,
+        c.organization_country || c.country,
+      ].filter(Boolean).join(", "),
       linkedin_url: (c.linkedin_url as string) || "",
       phone: (c.phone as string) || "",
       founded_year: String((c.founded_year as number) || ""),
