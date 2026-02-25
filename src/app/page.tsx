@@ -56,7 +56,7 @@ interface CompanyResult {
 
 export default function Home() {
   const [searchType, setSearchType] = useState<SearchType>("people");
-  const [apiKey, setApiKey] = useState("ASvvJqZWRdGwMuCYuT0XuQ");
+  const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [apolloUrl, setApolloUrl] = useState("");
   const [status, setStatus] = useState<JobStatus>("idle");
@@ -433,29 +433,50 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
             {/* Left: Inputs */}
             <div className="space-y-4">
-              {/* Type indicator + API Key */}
+              {/* Type toggle + API Key */}
               <div className="flex gap-3 items-center">
                 <div className="flex gap-1 p-1 bg-[#18181b] rounded-lg shrink-0">
-                  <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${searchType === "people" ? "bg-[#6366f1] text-white" : "bg-[#6366f1] text-white"}`}>
-                    {searchType === "people" ? "People Search" : "Company Search"}
-                  </span>
+                  <button
+                    onClick={() => setSearchType("people")}
+                    disabled={isRunning}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      searchType === "people" ? "bg-[#6366f1] text-white" : "text-[#71717a] hover:text-white"
+                    }`}
+                  >
+                    People Search
+                  </button>
+                  <button
+                    onClick={() => setSearchType("companies")}
+                    disabled={isRunning}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      searchType === "companies" ? "bg-[#6366f1] text-white" : "text-[#71717a] hover:text-white"
+                    }`}
+                  >
+                    Company Search
+                  </button>
                 </div>
                 <button
                   onClick={() => setShowApiKey(!showApiKey)}
                   className="text-[11px] text-[#52525b] hover:text-[#71717a] transition-colors shrink-0"
                 >
-                  {showApiKey ? "Hide" : "API Key"} Settings
+                  {showApiKey ? "Hide Settings" : "Settings"}
                 </button>
+                {!showApiKey && !apiKey && (
+                  <span className="text-[11px] text-[#22c55e]/60">Using team key</span>
+                )}
               </div>
               {showApiKey && (
-                <input
-                  type="text"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Apollo API Key"
-                  disabled={isRunning}
-                  className="w-full px-3 py-2 bg-[#18181b] border border-[#27272a] rounded-lg text-sm font-mono placeholder:text-[#52525b] focus:outline-none focus:border-[#6366f1] transition-colors"
-                />
+                <div className="space-y-1">
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Leave blank to use team default"
+                    disabled={isRunning}
+                    className="w-full px-3 py-2 bg-[#18181b] border border-[#27272a] rounded-lg text-sm font-mono placeholder:text-[#52525b] focus:outline-none focus:border-[#6366f1] transition-colors"
+                  />
+                  <p className="text-[10px] text-[#52525b]">Optional. Leave blank to use the pre-configured team API key.</p>
+                </div>
               )}
               {/* URL Input */}
               <textarea
@@ -489,7 +510,7 @@ export default function Home() {
               ) : (
                 <button
                   onClick={startExport}
-                  disabled={!apiKey.trim() || !apolloUrl.trim()}
+                  disabled={!apolloUrl.trim()}
                   className="w-full px-4 py-2.5 bg-[#6366f1] text-white rounded-lg text-sm font-medium hover:bg-[#818cf8] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Start Export

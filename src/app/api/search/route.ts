@@ -4,10 +4,11 @@ import { parseApolloUrl, searchPeoplePage, searchCompaniesPage } from "@/lib/apo
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const { apiKey, apolloUrl, type, page } = await req.json();
+  const { apiKey: clientKey, apolloUrl, type, page } = await req.json();
+  const apiKey = clientKey || process.env.APOLLO_API_KEY;
 
   if (!apiKey || !apolloUrl) {
-    return NextResponse.json({ error: "Missing apiKey or apolloUrl" }, { status: 400 });
+    return NextResponse.json({ error: "Missing apolloUrl" }, { status: 400 });
   }
 
   const searchParams = parseApolloUrl(apolloUrl);

@@ -4,10 +4,11 @@ import { enrichPersonById, EnrichedPerson } from "@/lib/apollo";
 export const maxDuration = 300; // 5 min for batch enrichment
 
 export async function POST(req: NextRequest) {
-  const { apiKey, personIds } = await req.json();
+  const { apiKey: clientKey, personIds } = await req.json();
+  const apiKey = clientKey || process.env.APOLLO_API_KEY;
 
   if (!apiKey || !personIds || !Array.isArray(personIds)) {
-    return NextResponse.json({ error: "Missing apiKey or personIds array" }, { status: 400 });
+    return NextResponse.json({ error: "Missing personIds array" }, { status: 400 });
   }
 
   // Process up to 50 at a time per request
