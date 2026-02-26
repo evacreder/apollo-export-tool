@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 
-function hashToken(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
+export const runtime = "nodejs";
+
+async function hashToken(value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export async function POST(req: NextRequest) {
@@ -17,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }
 
-  const tokenHash = hashToken(correctPassword);
+  const tokenHash = await hashToken(correctPassword);
 
   const response = NextResponse.json({ ok: true });
   response.cookies.set("auth_token", tokenHash, {
