@@ -17,11 +17,6 @@ interface JobSummary {
 }
 
 export default function Home() {
-  const [authed, setAuthed] = useState<boolean | null>(null); // null = checking
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [loggingIn, setLoggingIn] = useState(false);
-
   const [apolloUrl, setApolloUrl] = useState("");
   const [searchType, setSearchType] = useState<"people" | "companies">("people");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -31,47 +26,11 @@ export default function Home() {
   const [error, setError] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Auth check on mount ───────────────────────
-
-  useEffect(() => {
-    fetch("/api/jobs").then((r) => {
-      setAuthed(r.ok);
-    }).catch(() => setAuthed(false));
-  }, []);
-
-  const handleLogin = async () => {
-    setLoggingIn(true);
-    setLoginError("");
-    try {
-      const resp = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (resp.ok) {
-        setAuthed(true);
-        setPassword("");
-      } else {
-        setLoginError("Wrong password");
-      }
-    } catch {
-      setLoginError("Connection error");
-    } finally {
-      setLoggingIn(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/auth", { method: "DELETE" });
-    setAuthed(false);
-  };
-
   // ── Load jobs on mount ──────────────────────────
 
   const loadJobs = useCallback(async () => {
     try {
       const resp = await fetch("/api/jobs");
-      if (resp.status === 401) { setAuthed(false); return; }
       if (resp.ok) {
         const data = await resp.json();
         setJobs(data.jobs || []);
@@ -82,8 +41,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (authed) loadJobs();
-  }, [authed, loadJobs]);
+    loadJobs();
+  }, [loadJobs]);
 
   // ── Poll active job ─────────────────────────────
 
@@ -209,68 +168,15 @@ export default function Home() {
 
   // ── Render ──────────────────────────────────────
 
-  // Loading state
-  if (authed === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-[#fafafa]">
-        <div className="text-[#71717a] text-sm">Loading...</div>
-      </div>
-    );
-  }
-
-  // Login screen
-  if (!authed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b] text-[#fafafa]">
-        <div className="w-full max-w-sm space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-xl bg-[#6366f1] flex items-center justify-center text-white font-bold text-xl mx-auto">A</div>
-            <h1 className="text-xl font-semibold">Apollo Export Tool</h1>
-            <p className="text-sm text-[#71717a]">Enter the team password to continue</p>
-          </div>
-          <form
-            onSubmit={(e) => { e.preventDefault(); handleLogin(); }}
-            className="space-y-4"
-          >
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              autoFocus
-              className="w-full px-4 py-3 bg-[#18181b] border border-[#27272a] rounded-lg text-sm placeholder:text-[#52525b] focus:outline-none focus:border-[#6366f1] transition-colors"
-            />
-            <button
-              type="submit"
-              disabled={!password || loggingIn}
-              className="w-full px-4 py-3 bg-[#6366f1] text-white rounded-lg text-sm font-medium hover:bg-[#818cf8] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              {loggingIn ? "Signing in..." : "Sign In"}
-            </button>
-            {loginError && (
-              <p className="text-center text-sm text-[#ef4444]">{loginError}</p>
-            )}
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-[#09090b] text-[#fafafa]">
       <header className="border-b border-[#27272a] px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#6366f1] flex items-center justify-center text-white font-bold text-sm">A</div>
-          <div className="flex-1">
+          <div>
             <h1 className="text-lg font-semibold">Apollo Export Tool</h1>
             <p className="text-xs text-[#71717a]">Runs on the server - close your laptop, come back later</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-xs text-[#71717a] hover:text-white transition-colors px-3 py-1.5 rounded-md hover:bg-[#27272a]"
-          >
-            Sign Out
-          </button>
         </div>
       </header>
 
