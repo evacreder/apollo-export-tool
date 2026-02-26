@@ -47,10 +47,17 @@ const JOB_PREFIX = "jobs/";
 
 export async function saveJob(job: Job): Promise<void> {
   job.updatedAt = Date.now();
-  await put(`${JOB_PREFIX}${job.id}.json`, JSON.stringify(job), {
+  const path = `${JOB_PREFIX}${job.id}.json`;
+  // Delete existing blob first, then write new one
+  try {
+    const existing = await head(path);
+    if (existing) await del(existing.url);
+  } catch {
+    // ignore - blob may not exist yet
+  }
+  await put(path, JSON.stringify(job), {
     access: "public",
     addRandomSuffix: false,
-    allowOverwrite: true,
     contentType: "application/json",
   });
 }
