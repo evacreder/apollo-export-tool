@@ -50,6 +50,7 @@ export async function saveJob(job: Job): Promise<void> {
   await put(`${JOB_PREFIX}${job.id}.json`, JSON.stringify(job), {
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/json",
   });
 }
