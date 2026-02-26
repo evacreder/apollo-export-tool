@@ -131,24 +131,25 @@ export async function POST(req: NextRequest) {
 
 /**
  * Self-call: trigger the next batch processing after a delay.
- * Uses fire-and-forget fetch to our own endpoint.
+ * For short delays, calls /process directly.
+ * For long delays (rate limit), starts a wait chain via /wait
+ * that sleeps 55s at a time until the pause expires.
  */
 function scheduleNext(req: NextRequest, jobId: string, delayMs: number) {
   const baseUrl = new URL(req.url).origin;
-  const processUrl = `${baseUrl}/api/jobs/process`;
 
-  // For short delays, fire immediately (serverless will handle it)
-  // For long delays (rate limit), we rely on the client polling /api/jobs
-  // to trigger the next batch when it detects the pause has expired
   if (delayMs <= 5000) {
-    // Fire and forget - don't await
-    fetch(processUrl, {
+    fetch(`${baseUrl}/api/jobs/process`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobId }),
-    }).catch(() => {
-      // Ignore errors on self-call
-    });
+    }).catch(() => {});
+  } else {
+    // Start a wait chain that will bridge the rate limit pause
+    fetch(`${baseUrl}/api/jobs/wait`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId }),
+    }).catch(() => {});
   }
-  // For longer delays, the client or cron will trigger the next batch
 }
