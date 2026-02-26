@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { getJob, saveJob } from "@/lib/jobs";
 import { enrichPersonById } from "@/lib/apollo";
 
 export const maxDuration = 60;
 
 /**
- * Server-side enrichment processor. Processes one batch of enrichments
- * then calls itself to process the next batch. This creates a chain of
- * serverless invocations that runs independently of the client.
- *
- * Called with: POST /api/jobs/process { jobId }
- * Also accepts: ?secret=<PROCESS_SECRET> for self-calls
+ * Server-side enrichment processor. Processes one batch of enrichments,
+ * then uses next/server `after()` to trigger the next batch AFTER the
+ * response is sent (keeping the function alive for the background fetch).
  */
 export async function POST(req: NextRequest) {
   let jobId: string;
@@ -38,7 +36,18 @@ export async function POST(req: NextRequest) {
     // Check if still in rate limit pause
     if (job.pausedUntil && Date.now() < job.pausedUntil) {
       const remainingSec = Math.ceil((job.pausedUntil - Date.now()) / 1000);
-      scheduleNext(req, jobId, remainingSec * 1000 + 5000);
+
+      // Use after() to schedule the wait chain - it runs AFTER response is sent
+      // but the function stays alive
+      const baseUrl = new URL(req.url).origin;
+      after(async () => {
+        await fetch(`${baseUrl}/api/jobs/wait`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId }),
+        }).catch(() => {});
+      });
+
       return NextResponse.json({
         status: "paused",
         remainingSeconds: remainingSec,
@@ -92,12 +101,11 @@ export async function POST(req: NextRequest) {
         job.emailsFound++;
       }
 
-      // Save progress every 10 enrichments to avoid losing work
+      // Save progress every 10 enrichments
       if (batchEnriched % 10 === 0) {
         await saveJob(job);
       }
 
-      // Small delay between calls
       await new Promise((r) => setTimeout(r, 350));
     }
 
@@ -107,7 +115,15 @@ export async function POST(req: NextRequest) {
       job.status = "paused";
       await saveJob(job);
 
-      scheduleNext(req, jobId, pauseMs + 5000);
+      // Start wait chain using after() so it survives after response
+      const baseUrl = new URL(req.url).origin;
+      after(async () => {
+        await fetch(`${baseUrl}/api/jobs/wait`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId }),
+        }).catch(() => {});
+      });
 
       const remaining = toEnrich.length - batchEnriched;
       return NextResponse.json({
@@ -122,10 +138,17 @@ export async function POST(req: NextRequest) {
     job.status = "enriching";
     await saveJob(job);
 
-    // Chain: trigger next batch immediately
+    // Chain next batch using after()
     const remaining = toEnrich.length - batchEnriched;
     if (remaining > 0) {
-      scheduleNext(req, jobId, 1000);
+      const baseUrl = new URL(req.url).origin;
+      after(async () => {
+        await fetch(`${baseUrl}/api/jobs/process`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId }),
+        }).catch(() => {});
+      });
     } else {
       job.status = "complete";
       job.emailsFound = Object.values(job.enrichedPeople).filter((p) => p?.email).length;
@@ -140,30 +163,5 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
-  }
-}
-
-/**
- * Self-call: trigger the next batch processing after a delay.
- * For short delays, calls /process directly.
- * For long delays (rate limit), starts a wait chain via /wait
- * that sleeps 55s at a time until the pause expires.
- */
-function scheduleNext(req: NextRequest, jobId: string, delayMs: number) {
-  const baseUrl = new URL(req.url).origin;
-
-  if (delayMs <= 5000) {
-    fetch(`${baseUrl}/api/jobs/process`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId }),
-    }).catch(() => {});
-  } else {
-    // Start a wait chain that will bridge the rate limit pause
-    fetch(`${baseUrl}/api/jobs/wait`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId }),
-    }).catch(() => {});
   }
 }

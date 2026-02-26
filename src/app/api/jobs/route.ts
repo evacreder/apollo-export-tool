@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   getJob,
   saveJob,
@@ -165,13 +165,15 @@ export async function POST(req: NextRequest) {
     job.status = "enriching";
     await saveJob(job);
 
-    // Trigger background enrichment chain
+    // Trigger background enrichment chain using after() so it survives
     const baseUrl = new URL(req.url).origin;
-    fetch(`${baseUrl}/api/jobs/process`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: job.id }),
-    }).catch(() => {});
+    after(async () => {
+      await fetch(`${baseUrl}/api/jobs/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id }),
+      }).catch(() => {});
+    });
 
     return NextResponse.json({
       jobId: job.id,
