@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
+
+function hashToken(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
 
 export async function POST(req: NextRequest) {
   const { password } = await req.json();
@@ -12,8 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }
 
-  // Generate a simple token hash from the password
-  const tokenHash = process.env.AUTH_TOKEN_HASH!;
+  const tokenHash = hashToken(correctPassword);
 
   const response = NextResponse.json({ ok: true });
   response.cookies.set("auth_token", tokenHash, {
